@@ -138,6 +138,7 @@ class LLM:
         use_tqdm: bool = True,
         lora_request: Optional[LoRARequest] = None,
         multi_modal_data: Optional[MultiModalData] = None,
+        return_hidden_states_up_to_layer: int = -1,
     ) -> List[RequestOutput]:
         """Generates the completions for the input prompts.
 
@@ -157,6 +158,13 @@ class LLM:
             use_tqdm: Whether to use tqdm to display the progress bar.
             lora_request: LoRA request to use for generation, if any.
             multi_modal_data: Multi modal data.
+            return_hidden_states_up_to_layer: if -1, return no hidden states. If
+                > total num hidden states, return all of them. If >= 0 and < total
+                num hidden states, return a subset. Note that generations will be
+                sampled based only on the first return_hidden_states_up_to_layer
+                layers in this case. It's recommended to only use this to get hidden
+                states for the prompts, not samples, so set max_tokens=1 in
+                sampling_params.
 
         Returns:
             A list of `RequestOutput` objects containing the generated
@@ -211,6 +219,8 @@ class LLM:
                     data=multi_modal_data.data[i].unsqueeze(0))
                 if multi_modal_data else None,
             )
+        
+        self.llm_engine.model_executor.driver_worker.model_runner.return_hidden_states_up_to_layer = return_hidden_states_up_to_layer
         return self._run_engine(use_tqdm)
 
     def _add_request(

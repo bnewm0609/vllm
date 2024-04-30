@@ -155,6 +155,8 @@ class ModelRunner:
         # The shape of the cached block table will be
         # (max batch size to capture, max context len to capture / block size).
         self.graph_block_tables: torch.Tensor  # Set after initial profiling.
+        
+        self.return_hidden_states_up_to_layer = -1
 
     def load_model(self) -> None:
         with CudaMemoryProfiler() as m:
@@ -737,10 +739,14 @@ class ModelRunner:
             "positions": input_positions,
             "kv_caches": kv_caches,
             "attn_metadata": attn_metadata,
+            "return_hidden_states_up_to_layer": self.return_hidden_states_up_to_layer,
         }
+        # print("[model_runner.execute_model] return_hidden_states_up_to_layer:", self.return_hidden_states_up_to_layer)
         if self.vision_language_config:
             execute_model_kwargs.update({"image_input": multi_modal_input})
         hidden_states = model_executable(**execute_model_kwargs)
+        if self.return_hidden_states_up_to_layer >= 0:
+            hidden_states, hs_list = hidden_states
 
         # Compute the logits.
         logits = self.model.compute_logits(hidden_states, sampling_metadata)
@@ -754,7 +760,8 @@ class ModelRunner:
             logits=logits,
             sampling_metadata=sampling_metadata,
         )
-
+        if self.return_hidden_states_up_to_layer >= 0:
+            output[0].hidden_states = hs_list
         return output
 
     @torch.inference_mode()

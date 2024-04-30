@@ -280,13 +280,26 @@ class LlamaModel(nn.Module):
         kv_caches: List[torch.Tensor],
         attn_metadata: AttentionMetadata,
         inputs_embeds: Optional[torch.Tensor] = None,
+        return_hidden_states_up_to_layer: int = -1,  # -1 is don't return
     ) -> torch.Tensor:
+        # print("[LlamaModel.forward] return_hidden_states_up_to_layer:", return_hidden_states_up_to_layer)
         if inputs_embeds is not None:
             hidden_states = inputs_embeds
         else:
             hidden_states = self.get_input_embeddings(input_ids)
         residual = None
+        # print(hidden_states[0])
+        
+        all_hidden_states = []
         for i in range(len(self.layers)):
+            if return_hidden_states_up_to_layer >= 0:
+                if residual is not None:
+                    all_hidden_states.append((hidden_states + residual).cpu())
+                else:
+                    all_hidden_states.append((hidden_states).cpu())
+                if i == return_hidden_states_up_to_layer:
+                    break
+                # print(i, all_hidden_states[0][0])
             layer = self.layers[i]
             hidden_states, residual = layer(
                 positions,
@@ -295,8 +308,15 @@ class LlamaModel(nn.Module):
                 attn_metadata,
                 residual,
             )
+        
         hidden_states, _ = self.norm(hidden_states, residual)
-        return hidden_states
+        
+        if return_hidden_states_up_to_layer >= 0:
+            all_hidden_states.append(hidden_states)
+            # print(all_hidden_states[0][0])
+            return hidden_states, all_hidden_states
+        else:
+            return hidden_states
 
 
 class LlamaForCausalLM(nn.Module):
@@ -360,9 +380,12 @@ class LlamaForCausalLM(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[torch.Tensor],
         attn_metadata: AttentionMetadata,
+        return_hidden_states_up_to_layer: int = -1,
     ) -> torch.Tensor:
+        # print("[LlamaForCausalLM.forard] return_hidden_states_up_to_layer:", return_hidden_states_up_to_layer)
         hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata)
+                                   attn_metadata,
+                                   return_hidden_states_up_to_layer=return_hidden_states_up_to_layer)
         return hidden_states
 
     def compute_logits(self, hidden_states: torch.Tensor,

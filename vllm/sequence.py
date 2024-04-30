@@ -412,6 +412,7 @@ class SequenceGroup:
         arrival_time: float,
         lora_request: Optional[LoRARequest] = None,
         multi_modal_data: Optional[MultiModalData] = None,
+        hidden_states: Optional[List] = None,
     ) -> None:
         self.request_id = request_id
         self.seqs_dict = {seq.seq_id: seq for seq in seqs}
@@ -425,6 +426,7 @@ class SequenceGroup:
         self.prompt_logprobs: Optional[PromptLogprobs] = None
         self.state = SequenceGroupState()
         self.multi_modal_data = multi_modal_data
+        self.hidden_states = hidden_states
 
     @property
     def prompt(self) -> str:
@@ -647,6 +649,7 @@ class SequenceOutput:
         self.output_token = output_token
         self.logprobs = logprobs
 
+
     def __repr__(self) -> str:
         return (f"SequenceOutput(parent_seq_id={self.parent_seq_id}, "
                 f"output_token={self.output_token}, "
@@ -672,6 +675,8 @@ class SequenceGroupOutput:
         self.samples = samples
         # Prompt logprob for each prompt query token.
         self.prompt_logprobs = prompt_logprobs
+        # List of on-device tensors containing the hidden states for each model.
+        self.hidden_states: Optional[List] = None
 
     def __repr__(self) -> str:
         return (f"SequenceGroupOutput(samples={self.samples}, "
@@ -703,6 +708,7 @@ class SamplerOutput:
 
     # Spec decode metrics populated by workers.
     spec_decode_worker_metrics: Optional["SpecDecodeWorkerMetrics"] = None
+
 
     def __getitem__(self, idx: int):
         return self.outputs[idx]
